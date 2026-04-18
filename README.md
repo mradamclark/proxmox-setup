@@ -25,6 +25,11 @@ Per node, in order:
 8. **ACME** *(optional, off by default)* — issue a Let's Encrypt cert
    for each node's web UI via Cloudflare DNS-01. Proxmox's built-in
    daily timer handles renewals.
+9. **node_exporter** *(optional, off by default)* — install
+   `prometheus-node-exporter` on every node so host metrics (CPU,
+   memory, disk, network, hwmon temps) are exposed on :9100 for
+   scraping. No Prometheus scrape config is managed — point your own
+   Prometheus at the nodes.
 
 Every task uses tags, so you can run subsets like `--tags acme` or
 `--tags users,ssh`.
@@ -77,8 +82,9 @@ All tunables live in `group_vars/proxmox_hosts/main.yml`. The big
 feature toggles:
 
 ```yaml
-pve_shared_nfs_enabled: false      # register a shared NFS pool
-proxmox_acme_enabled: false        # issue LE certs via Cloudflare DNS-01
+pve_shared_nfs_enabled: false         # register a shared NFS pool
+proxmox_acme_enabled: false           # issue LE certs via Cloudflare DNS-01
+proxmox_node_exporter_enabled: false  # install prometheus-node-exporter on :9100
 ```
 
 Most people will want to leave the rest alone until they have a reason
@@ -103,6 +109,10 @@ to change them. Per-host overrides go in `host_vars/<hostname>.yml`.
   `pvecm add`) is a one-time, state-sensitive operation that's easier
   to do by hand. This playbook configures nodes but doesn't form the
   cluster for you.
+- **No Prometheus server or scrape config.** The optional
+  `proxmox_node_exporter_enabled` toggle installs node_exporter on the
+  nodes themselves, but you bring your own Prometheus to scrape
+  `<host>:9100`. There's no dashboard or alerting shipped either.
 
 ## License
 

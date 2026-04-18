@@ -34,17 +34,18 @@ proxmox-setup/
 
 Every task file has tags. The big ones:
 
-| Tag            | What it runs                                           |
-|----------------|--------------------------------------------------------|
-| `hostname`     | Set hostname + update `/etc/hosts`                     |
-| `repos`        | Swap enterprise APT repo for no-subscription           |
-| `packages`     | `apt upgrade` + install baseline + Proxmox packages    |
-| `ssh`          | Harden sshd (disable password auth, etc.)              |
-| `users`        | Create admin users + install SSH keys + sudoers        |
-| `network`      | IP forwarding + e1000e NIC workaround                  |
-| `tuning`       | swappiness + inotify limits                            |
-| `nfs`          | NFS shared storage (only if `pve_shared_nfs_enabled`)  |
-| `acme`         | LE certs (only if `proxmox_acme_enabled`)              |
+| Tag                           | What it runs                                                               |
+|-------------------------------|----------------------------------------------------------------------------|
+| `hostname`                    | Set hostname + update `/etc/hosts`                                         |
+| `repos`                       | Swap enterprise APT repo for no-subscription                               |
+| `packages`                    | `apt upgrade` + install baseline + Proxmox packages                        |
+| `ssh`                         | Harden sshd (disable password auth, etc.)                                  |
+| `users`                       | Create admin users + install SSH keys + sudoers                            |
+| `network`                     | IP forwarding + e1000e NIC workaround                                      |
+| `tuning`                      | swappiness + inotify limits                                                |
+| `nfs`                         | NFS shared storage (only if `pve_shared_nfs_enabled`)                      |
+| `acme`                        | LE certs (only if `proxmox_acme_enabled`)                                  |
+| `node-exporter`, `monitoring` | Install prometheus-node-exporter (only if `proxmox_node_exporter_enabled`) |
 
 Examples:
 

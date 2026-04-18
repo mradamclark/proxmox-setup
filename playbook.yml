@@ -15,6 +15,7 @@
 #   5. configure      — network tunables, e1000e NIC fix, system tuning
 #   6. shared-storage — optional NFS shared-storage pool (off by default)
 #   7. acme           — optional LE cert via Cloudflare DNS-01 (off by default)
+#   8. node-exporter  — optional prometheus-node-exporter on :9100 (off by default)
 
 - name: Configure Proxmox hosts
   hosts: proxmox_hosts
@@ -39,3 +40,5 @@
       when: pve_shared_nfs_enabled | default(false)
     - import_tasks: tasks/proxmox/acme.yml
       when: proxmox_acme_enabled | default(false)
+    - import_tasks: tasks/proxmox/node-exporter.yml
+      when: proxmox_node_exporter_enabled | default(false)

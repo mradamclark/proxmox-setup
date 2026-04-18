@@ -39,6 +39,13 @@ proxmox_acme_email: "admin@example.com"                # used for LE registratio
 proxmox_acme_domain: "pve.example.com"                 # parent zone; per-node cert = <host>.<this>
 # proxmox_acme_cloudflare_token: "..."                 # set in host_vars/ or via vault
 
+# --- node_exporter (optional) ---
+# Install prometheus-node-exporter on every node so you can scrape host
+# metrics (CPU, memory, disk, network, hwmon CPU temps) with your own
+# Prometheus server. No scrape config is created for you — you'd point
+# Prometheus at <host>:9100 yourself.
+proxmox_node_exporter_enabled: false
+
 # --- Platform ---
 # LAN subnet used to permit cluster traffic on nodes that run a local firewall.
 # Leave the e1000e NIC workaround defaults alone unless you know you want to

@@ -1,0 +1,26 @@
+---
+# Optional: install prometheus-node-exporter so the node can be scraped by
+# a Prometheus instance (host metrics: CPU, memory, disk, network, and
+# hardware sensors via hwmon). Off by default via a feature flag so
+# users who don't run Prometheus aren't forced to install it.
+#
+# Enable via `proxmox_node_exporter_enabled: true` in
+# group_vars/proxmox_hosts/main.yml. Once installed, node_exporter listens
+# on :9100 — point your Prometheus at each node yourself (this playbook
+# does not manage scrape configs).
+
+- name: Install and enable node_exporter
+  tags: ["node-exporter", "monitoring"]
+  when: proxmox_node_exporter_enabled | default(false)
+  block:
+    - name: Install node_exporter
+      ansible.builtin.apt:
+        name: prometheus-node-exporter
+        state: present
+        update_cache: true
+
+    - name: Enable and start node_exporter
+      ansible.builtin.systemd:
+        name: prometheus-node-exporter
+        enabled: true
+        state: started
