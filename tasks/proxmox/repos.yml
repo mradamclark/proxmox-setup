@@ -1,0 +1,41 @@
+---
+# Proxmox APT repository configuration — run before any apt operations.
+#
+# A fresh Proxmox install ships with the enterprise repo enabled, which
+# returns 401 for anyone without a subscription. That makes every `apt
+# update` noisy and eventually blocks upgrades. This task swaps it for
+# the no-subscription repo so updates work out of the box.
+#
+# Supports both .list (PVE 8) and .sources (PVE 9) files.
+
+- name: Configure Proxmox APT repositories
+  tags: ["proxmox", "repos"]
+  block:
+    - name: Remove enterprise repository files
+      when: proxmox_disable_enterprise_repo | default(true)
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/apt/sources.list.d/pve-enterprise.list
+        - /etc/apt/sources.list.d/pve-enterprise.sources
+        - /etc/apt/sources.list.d/ceph.list
+        - /etc/apt/sources.list.d/ceph.sources
+
+    - name: Write PVE no-subscription repository file
+      when: proxmox_repository == 'no-subscription'
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/pve-no-subscription.list
+        content: "deb http://download.proxmox.com/debian/pve {{ ansible_facts['distribution_release'] }} pve-no-subscription\n"
+        mode: '0644'
+
+    - name: Write Ceph no-subscription repository file
+      when: proxmox_repository == 'no-subscription'
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/ceph-no-subscription.list
+        content: "deb http://download.proxmox.com/debian/ceph-squid {{ ansible_facts['distribution_release'] }} no-subscription\n"
+        mode: '0644'
+
+    - name: Refresh apt cache after repo changes
+      ansible.builtin.apt:
+        update_cache: true

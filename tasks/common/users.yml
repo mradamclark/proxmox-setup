@@ -1,0 +1,65 @@
+---
+# Create admin accounts and install SSH keys.
+#
+# For each entry in the inventory-level `users` list:
+#   - create the Linux user (shell /bin/bash, home dir, in admin+staff groups)
+#   - install ../../ssh-keys/<user>.pub into ~/.ssh/authorized_keys
+#   - drop a /etc/sudoers.d/<user> file granting passwordless sudo
+#
+# The matching ssh-keys/<user>.pub file MUST exist — the play will fail fast
+# if it doesn't, which is what you want: no user should exist on the node
+# without an authorized key to log in with.
+
+- name: Ensure sudo is installed
+  tags: ["users"]
+  ansible.builtin.apt:
+    name: sudo
+    state: present
+    update_cache: false
+
+- name: Ensure admin group exists
+  tags: ["users"]
+  ansible.builtin.group:
+    name: admin
+    state: present
+    system: true
+
+- name: Ensure staff group exists
+  tags: ["users"]
+  ansible.builtin.group:
+    name: staff
+    state: present
+    system: true
+
+- name: Refresh facts after creating groups
+  tags: ["users"]
+  ansible.builtin.setup:
+    gather_subset:
+      - '!all'
+      - 'min'
+
+- name: Create user accounts and add to admin+staff groups
+  tags: ["users"]
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: "staff,admin"
+    shell: /bin/bash
+    append: true
+    create_home: true
+  loop: "{{ users }}"
+
+- name: Install authorized keys from ssh-keys/<user>.pub
+  tags: ["users"]
+  ansible.posix.authorized_key:
+    user: "{{ item }}"
+    key: "{{ lookup('file', playbook_dir + '/ssh-keys/' + item + '.pub') }}"
+  loop: "{{ users }}"
+
+- name: Grant passwordless sudo
+  tags: ["users"]
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ item }}"
+    content: "{{ item }} ALL=(ALL) NOPASSWD:ALL\n"
+    mode: '0440'
+    validate: /usr/sbin/visudo -cf %s
+  loop: "{{ users }}"

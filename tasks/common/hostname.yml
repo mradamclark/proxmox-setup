@@ -1,0 +1,13 @@
+---
+- name: Set hostname from inventory
+  tags: ["hostname"]
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+
+- name: Ensure /etc/hosts resolves our hostname to loopback
+  tags: ["hostname"]
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^127\.0\.1\.1\b'
+    line: "127.0.1.1 {{ inventory_hostname }}"
+    state: present

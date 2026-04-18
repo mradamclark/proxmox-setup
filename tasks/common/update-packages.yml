@@ -1,0 +1,7 @@
+---
+- name: Update apt cache and upgrade all packages
+  tags: ["packages", "update"]
+  ansible.builtin.apt:
+    update_cache: yes
+    upgrade: safe
+    cache_valid_time: 3600

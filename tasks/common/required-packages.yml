@@ -1,0 +1,21 @@
+---
+# Baseline packages every node gets — install/remove tooling, basic utils.
+
+- name: Install baseline packages
+  tags: ["packages"]
+  ansible.builtin.apt:
+    name:
+      - curl
+      - ca-certificates
+      - gnupg
+      - htop
+      - ncdu
+      - sudo
+      - vim
+      - wget
+      - net-tools
+      - dnsutils
+      - unzip
+      - jq
+    state: present
+    update_cache: yes

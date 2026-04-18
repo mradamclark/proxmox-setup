@@ -1,0 +1,110 @@
+---
+# Proxmox VE ACME setup — Let's Encrypt certs via Cloudflare DNS-01.
+# Uses Proxmox's native `pvenode acme` CLI (which wraps acme.sh).
+#
+# Each node gets a cert for <inventory_hostname>.<proxmox_acme_domain>.
+# For example, with `proxmox_acme_domain: pve.example.com` and three
+# nodes (pve1, pve2, pve3), you end up with:
+#   pve1.pve.example.com
+#   pve2.pve.example.com
+#   pve3.pve.example.com
+#
+# Renewals run automatically via Proxmox's built-in `pve-daily-update.timer`.
+# You DON'T need to re-run this playbook to renew — it's handled by the node.
+#
+# Prerequisites:
+#   * You own the parent zone (proxmox_acme_domain), hosted on Cloudflare.
+#   * Cloudflare API token with Zone:DNS:Edit permission on that zone,
+#     provided as `proxmox_acme_cloudflare_token` (put it in host_vars/
+#     or an ansible-vault-encrypted group_vars file — NEVER commit plain).
+#   * DNS-01 challenge, so no inbound port 80/443 required.
+
+- name: Assert Cloudflare API token is set
+  tags: ["acme"]
+  ansible.builtin.assert:
+    that:
+      - proxmox_acme_cloudflare_token is defined
+      - proxmox_acme_cloudflare_token | length > 0
+    fail_msg: >-
+      proxmox_acme_cloudflare_token is required when proxmox_acme_enabled=true.
+      Set it in host_vars/ or an ansible-vault-encrypted group_vars file.
+
+- name: Check existing ACME accounts
+  tags: ["acme"]
+  ansible.builtin.command: pvenode acme account list
+  register: _acme_accounts
+  changed_when: false
+
+- name: Register ACME account with Let's Encrypt
+  tags: ["acme"]
+  ansible.builtin.command: >-
+    pvenode acme account register {{ proxmox_acme_account }} {{ proxmox_acme_email }}
+    --directory https://acme-v02.api.letsencrypt.org/directory
+  when: proxmox_acme_account not in (_acme_accounts.stdout | default(''))
+
+- name: Check existing ACME plugins
+  tags: ["acme"]
+  ansible.builtin.command: pvenode acme plugin list
+  register: _acme_plugins
+  changed_when: false
+
+# `pvenode acme plugin add --data` takes a FILE PATH, not a value. Write
+# the token to a temp file, feed it in, then remove it. The plugin stores
+# the token in /etc/pve/priv/ from that point on, so the temp file is
+# no longer needed.
+- name: Write Cloudflare token to a temp file for plugin registration
+  tags: ["acme"]
+  ansible.builtin.copy:
+    dest: /root/.cloudflare-acme-token
+    content: "CF_Token={{ proxmox_acme_cloudflare_token }}\n"
+    owner: root
+    group: root
+    mode: "0600"
+  when: "'cloudflare' not in (_acme_plugins.stdout | default(''))"
+  no_log: true
+
+- name: Add Cloudflare DNS-01 plugin
+  tags: ["acme"]
+  ansible.builtin.command: >-
+    pvenode acme plugin add dns cloudflare
+    --api cf
+    --data /root/.cloudflare-acme-token
+  when: "'cloudflare' not in (_acme_plugins.stdout | default(''))"
+
+- name: Remove temp Cloudflare token file
+  tags: ["acme"]
+  ansible.builtin.file:
+    path: /root/.cloudflare-acme-token
+    state: absent
+
+- name: Configure node ACME domain + plugin
+  tags: ["acme"]
+  ansible.builtin.command: >-
+    pvenode config set
+    --acme account={{ proxmox_acme_account }}
+    --acmedomain0 domain={{ inventory_hostname }}.{{ proxmox_acme_domain }},plugin=cloudflare
+  register: _acme_domain
+  changed_when: _acme_domain.rc == 0
+
+- name: Check for an existing cert (need --force to replace a custom one)
+  tags: ["acme"]
+  ansible.builtin.stat:
+    path: /etc/pve/local/pveproxy-ssl.pem
+  register: _pve_cert
+
+- name: Order ACME certificate
+  tags: ["acme"]
+  ansible.builtin.command: >-
+    pvenode acme cert order {{ '--force 1' if _pve_cert.stat.exists else '' }}
+  register: _acme_order
+  changed_when: "'Downloaded' in (_acme_order.stdout | default('')) or 'Successfully' in (_acme_order.stdout | default(''))"
+  failed_when:
+    - _acme_order.rc != 0
+    - "'still valid' not in (_acme_order.stdout | default('')) + (_acme_order.stderr | default(''))"
+
+- name: Restart pveproxy to pick up the new cert
+  tags: ["acme"]
+  ansible.builtin.systemd:
+    name: pveproxy
+    state: restarted
+  when: _acme_order.changed

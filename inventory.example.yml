@@ -1,0 +1,28 @@
+---
+# Copy this file to inventory.yml and edit for your cluster.
+#
+# Each Proxmox node goes under `proxmox_hosts.hosts`. Use whatever naming
+# fits your environment — the example uses short names that match the node's
+# own hostname. ansible_host can be an IP or a DNS name; SSH is how Ansible
+# reaches the node.
+#
+# `users` is the list of Linux accounts to create on each node. For every
+# username listed, drop a matching public key at ssh-keys/<username>.pub
+# and the users.yml task will install it to ~/.ssh/authorized_keys with
+# passwordless sudo.
+
+all:
+  vars:
+    ansible_user: root             # edit if you create your own admin user pre-setup
+    users:
+      - admin                       # requires ssh-keys/admin.pub
+
+  children:
+    proxmox_hosts:
+      hosts:
+        pve1:
+          ansible_host: 192.168.1.11
+        pve2:
+          ansible_host: 192.168.1.12
+        pve3:
+          ansible_host: 192.168.1.13

@@ -1,0 +1,55 @@
+---
+# Hardens sshd: key-only auth, disable empty passwords, restrict root to
+# key-based login. Safe to re-run — all lineinfile changes are idempotent.
+#
+# IMPORTANT: make sure at least one user already has an authorized_key
+# installed before running this on a remote host, or you may lock yourself
+# out. The users.yml task runs after this in playbook.yml and handles the
+# key install, so in a fresh run the order is: ssh hardening -> users +
+# keys. But if you're using root for initial bootstrap, that still works
+# as long as you're connecting with a key, not a password.
+
+- name: Disable password authentication
+  tags: ["ssh"]
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PasswordAuthentication'
+    line: 'PasswordAuthentication no'
+    state: present
+  notify: restart sshd
+
+- name: Restrict root to key-based login only
+  tags: ["ssh"]
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PermitRootLogin'
+    line: 'PermitRootLogin prohibit-password'
+    state: present
+  notify: restart sshd
+
+- name: Disable empty passwords
+  tags: ["ssh"]
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PermitEmptyPasswords'
+    line: 'PermitEmptyPasswords no'
+    state: present
+  notify: restart sshd
+
+- name: Disable challenge-response authentication
+  tags: ["ssh"]
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?ChallengeResponseAuthentication'
+    line: 'ChallengeResponseAuthentication no'
+    state: present
+  notify: restart sshd
+
+- name: Ensure UsePAM is enabled
+  tags: ["ssh"]
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?UsePAM'
+    line: 'UsePAM yes'
+    state: present
+  notify: restart sshd

@@ -1,0 +1,80 @@
+---
+# Optional: register a shared NFS storage pool (`pve-shared`) on every node
+# so VMs/CTs, ISOs, templates, and backups can be migrated between nodes
+# without re-downloading. Off by default — enable via
+# `pve_shared_nfs_enabled: true` in group_vars/proxmox_hosts/main.yml.
+#
+# A systemd .mount unit is used (rather than fstab) so the mount is ordered
+# after network-online.target and is visible before PVE services start.
+
+- name: Install NFS client packages
+  tags: ["proxmox", "storage", "nfs"]
+  ansible.builtin.apt:
+    name:
+      - nfs-common
+    state: present
+
+- name: Deploy systemd mount unit for pve-shared
+  tags: ["proxmox", "storage", "nfs"]
+  ansible.builtin.shell:
+    cmd: |
+      UNIT_NAME=$(systemd-escape --path /mnt/pve/pve-shared).mount
+      cat > "/etc/systemd/system/${UNIT_NAME}" << 'UNIT'
+      # Managed by Ansible — shared NFS storage
+      [Unit]
+      Description=PVE Shared NFS Storage
+      After=network-online.target
+      Wants=network-online.target
+
+      [Mount]
+      What={{ pve_shared_nfs_server }}:{{ pve_shared_nfs_export }}
+      Where=/mnt/pve/pve-shared
+      Type=nfs
+      Options={{ pve_shared_nfs_options }}
+
+      [Install]
+      WantedBy=multi-user.target
+      UNIT
+      systemctl daemon-reload
+      systemctl enable "${UNIT_NAME}"
+      systemctl start "${UNIT_NAME}" || true
+  register: mount_unit
+  changed_when: mount_unit.rc == 0
+
+- name: Check if pve-shared storage pool exists in PVE
+  tags: ["proxmox", "storage", "nfs"]
+  ansible.builtin.command:
+    cmd: pvesm status --storage pve-shared
+  register: pve_shared_status
+  changed_when: false
+  failed_when: false
+
+- name: Register pve-shared NFS storage pool
+  tags: ["proxmox", "storage", "nfs"]
+  ansible.builtin.command:
+    cmd: >
+      pvesm add nfs pve-shared
+      --server {{ pve_shared_nfs_server }}
+      --export {{ pve_shared_nfs_export }}
+      --content {{ pve_shared_nfs_content }}
+      --options {{ pve_shared_nfs_options }}
+  when: pve_shared_status.rc != 0
+
+- name: Ensure pve-shared storage pool is enabled
+  tags: ["proxmox", "storage", "nfs"]
+  ansible.builtin.command:
+    cmd: pvesm set pve-shared --disable 0
+  changed_when: false
+  when: pve_shared_status.rc == 0
+
+- name: Verify pve-shared is active
+  tags: ["proxmox", "storage", "nfs"]
+  ansible.builtin.command:
+    cmd: pvesm status --storage pve-shared
+  register: pve_shared_verify
+  changed_when: false
+
+- name: Display shared storage status
+  tags: ["proxmox", "storage", "nfs"]
+  ansible.builtin.debug:
+    msg: "pve-shared NFS storage: {{ pve_shared_verify.stdout_lines | last | default('unknown') }}"

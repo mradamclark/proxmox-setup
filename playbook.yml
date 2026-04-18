@@ -1,0 +1,41 @@
+---
+# Proxmox cluster setup — idempotent end-to-end configuration.
+#
+# Usage:
+#   ansible-playbook playbook.yml                     # full run
+#   ansible-playbook playbook.yml --limit pve1        # one node
+#   ansible-playbook playbook.yml --tags acme         # just issue/renew certs
+#   ansible-playbook playbook.yml --tags users,ssh    # just account + SSH
+#
+# Phases (runs in order per host):
+#   1. hostname       — set each node's hostname from inventory
+#   2. repos          — swap enterprise repo for no-subscription
+#   3. packages       — system updates + required/proxmox-specific packages
+#   4. ssh + users    — key-based SSH, disable password auth, create accounts
+#   5. configure      — network tunables, e1000e NIC fix, system tuning
+#   6. shared-storage — optional NFS shared-storage pool (off by default)
+#   7. acme           — optional LE cert via Cloudflare DNS-01 (off by default)
+
+- name: Configure Proxmox hosts
+  hosts: proxmox_hosts
+  become: true
+  gather_facts: true
+
+  handlers:
+    - name: restart sshd
+      ansible.builtin.service:
+        name: ssh
+        state: restarted
+
+  tasks:
+    - import_tasks: tasks/common/hostname.yml
+    - import_tasks: tasks/proxmox/repos.yml
+    - import_tasks: tasks/common/update-packages.yml
+    - import_tasks: tasks/common/required-packages.yml
+    - import_tasks: tasks/common/secure-ssh.yml
+    - import_tasks: tasks/common/users.yml
+    - import_tasks: tasks/proxmox/configure.yml
+    - import_tasks: tasks/proxmox/shared-storage.yml
+      when: pve_shared_nfs_enabled | default(false)
+    - import_tasks: tasks/proxmox/acme.yml
+      when: proxmox_acme_enabled | default(false)

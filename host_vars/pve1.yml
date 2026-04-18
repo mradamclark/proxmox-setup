@@ -1,0 +1,16 @@
+---
+# Example host_vars file — any variable defined here overrides the values
+# in group_vars/proxmox_hosts/main.yml for this one host.
+#
+# Rename this file to match each host in your inventory (e.g. pve1.yml,
+# pve2.yml, pve3.yml). Most installs won't need any host-specific overrides
+# at all — delete this file if you have none.
+#
+# Typical uses:
+#   * Hand one node a larger NFS mount or different options.
+#   * Give one node a non-standard ACME domain (e.g. pve1.other.example.com).
+#   * Pin one node to the enterprise repo while the rest stay on no-sub.
+
+# proxmox_repository: enterprise
+
+# pve_shared_nfs_options: "hard,noatime,rsize=131072,wsize=131072,nconnect=4"

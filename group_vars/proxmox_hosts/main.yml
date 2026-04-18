@@ -1,0 +1,46 @@
+---
+# Variables for every Proxmox host. Override per-host in host_vars/<name>.yml.
+
+# --- Packages ---
+proxmox_packages:
+  - pve-headers        # kernel headers for building modules (ZFS, etc.)
+  - ifupdown2          # advanced network config
+  - ethtool            # required by the e1000e NIC workaround
+  - iotop              # I/O monitoring
+  - lm-sensors         # hardware sensor readout
+
+# --- Repositories ---
+proxmox_repository: no-subscription      # or "enterprise" if you pay for it
+proxmox_disable_enterprise_repo: true
+
+# --- NFS shared storage (optional) ---
+# Enable to mount a shared NFS export and register it as a PVE storage pool
+# named "pve-shared". All hosts in the cluster get it, enabling VM/CT
+# migration between nodes without re-downloading ISOs/templates/backups.
+#
+# Leave disabled if you don't have a NAS or prefer local-only storage.
+pve_shared_nfs_enabled: false
+pve_shared_nfs_server: "nas.example.com"              # hostname or IP of NFS server
+pve_shared_nfs_export: "/volume1/pve-shared"          # export path on the server
+pve_shared_nfs_content: "images,rootdir,snippets,vztmpl"  # what PVE can store there
+pve_shared_nfs_options: "hard,noatime,rsize=131072,wsize=131072"
+
+# --- ACME / Let's Encrypt (optional) ---
+# Enable to have each node get a publicly-trusted LE cert on its web UI
+# (:8006) via Proxmox's native `pvenode acme` + Cloudflare DNS-01 plugin.
+# Requires: you own the parent zone, Cloudflare hosts it, and you have an
+# API token with Zone:DNS:Edit permission for that zone.
+#
+# Cert domain per node = <inventory_hostname>.<proxmox_acme_domain>.
+# Renewals happen automatically via Proxmox's pve-daily-update.timer.
+proxmox_acme_enabled: false
+proxmox_acme_account: "default"                        # label used in `pvenode acme account list`
+proxmox_acme_email: "admin@example.com"                # used for LE registration/notifications
+proxmox_acme_domain: "pve.example.com"                 # parent zone; per-node cert = <host>.<this>
+# proxmox_acme_cloudflare_token: "..."                 # set in host_vars/ or via vault
+
+# --- Platform ---
+# LAN subnet used to permit cluster traffic on nodes that run a local firewall.
+# Leave the e1000e NIC workaround defaults alone unless you know you want to
+# change them — the configure task auto-detects e1000e cards and patches them.
+proxmox_lan_subnet: "192.168.1.0/24"

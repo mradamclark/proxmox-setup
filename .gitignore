@@ -1,0 +1,23 @@
+# Ansible vault password — never commit
+vault.pwd
+*.vault.pwd
+
+# User's SSH public keys — committed by design, but private keys must never land here
+ssh-keys/*.key
+ssh-keys/id_*
+ssh-keys/*_rsa*
+ssh-keys/*_ed25519*
+!ssh-keys/*.pub
+
+# Ansible retry files
+*.retry
+
+# Editor / OS junk
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Ansible cached facts
+.ansible/
