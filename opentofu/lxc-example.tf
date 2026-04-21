@@ -46,7 +46,7 @@ module "plex_lxc" {
 
   # --- Ansible handoff ----------------------------------------------------
   run_ansible      = true
-  ansible_playbook = "../ansible/playbook.yml"
+  ansible_playbook = "../ansible/playbooks/lxc.yml"
   ansible_groups   = ["lxc_hosts"]
 }
 

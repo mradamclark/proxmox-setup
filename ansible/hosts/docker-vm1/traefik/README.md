@@ -1,12 +1,32 @@
-# traefik-example — Traefik + whoami + Cloudflare DNS-01
+# traefik — Traefik + whoami + Cloudflare DNS-01
 
 A minimal Docker Compose stack that demonstrates the HTTPS pattern the rest
-of this example assumes: Traefik as the edge proxy, Let's Encrypt certs
+of the example assumes: Traefik as the edge proxy, Let's Encrypt certs
 issued via **Cloudflare DNS-01** (no inbound :80 needed), and a `whoami`
 backend to prove end-to-end routing.
 
-Drop this onto the VM that `vm-example.tf` creates and it will serve
-`https://whoami.example.com` with a valid LE cert.
+## How this gets deployed
+
+This directory follows the `ansible/hosts/{hostname}/{service}/` convention
+that `playbooks/deploy.yml` picks up automatically:
+
+```text
+ansible/hosts/docker-vm1/
+└── traefik/
+    ├── docker-compose.yml    — the stack
+    ├── .env.j2               — rendered to .env on the host (Cloudflare token)
+    ├── tasks.yml             — pre-deploy hook (creates acme.json with 0600)
+    └── README.md             — this file (not copied to host)
+```
+
+Deploy with:
+
+```bash
+ansible-playbook playbooks/deploy.yml --limit docker-vm1 --tags traefik
+```
+
+The deploy task rsyncs the compose file + runs `tasks.yml` + renders `.env.j2`
++ does `docker compose up -d --pull always`. Re-run anytime to reconcile.
 
 ## Why DNS-01 (and not HTTP-01)?
 
@@ -46,36 +66,15 @@ sequenceDiagram
 
 - A Cloudflare-managed zone for the domain you'll use (replace `example.com`
   throughout `docker-compose.yml`).
-- A Cloudflare API token with **Zone:DNS:Edit** on that zone.
-  Create at <https://dash.cloudflare.com/profile/api-tokens>.
-- Docker + Docker Compose on the target host (the Ansible playbook in
-  `../../ansible/` installs Docker for you on `docker_hosts`).
-
-## Setup
-
-```bash
-# 1. Create the acme.json Traefik writes certs to (must be 0600 or Traefik refuses to start)
-touch acme.json && chmod 600 acme.json
-
-# 2. Drop your Cloudflare token into .env
-cp .env.example .env
-$EDITOR .env
-
-# 3. Bring it up
-docker compose up -d
-
-# 4. Watch Traefik get the cert (first request triggers issuance)
-docker compose logs -f traefik
-```
-
-Within ~30 seconds of the first request to `https://whoami.example.com`,
-you should see Traefik log `Register... obtain` and then hand back a
-valid Let's Encrypt cert.
+- A Cloudflare API token with **Zone:DNS:Edit** on that zone. Create it at
+  <https://dash.cloudflare.com/profile/api-tokens>, then put it in your
+  ansible vault as `vault_cloudflare_dns_token` — `.env.j2` reads from there.
+- Docker + Docker Compose on the target host. `playbooks/docker.yml` installs
+  both if the host is a member of `docker_hosts`.
 
 ## Adding more services
 
-Any container on the `edge` network with the right labels gets routed
-automatically:
+Any container on the `edge` network with the right labels gets routed:
 
 ```yaml
 services:
@@ -90,15 +89,16 @@ services:
       - traefik.http.services.grafana.loadbalancer.server.port=3000
 ```
 
-Make sure the DNS name (`grafana.example.com`) resolves to the VM's IP —
-a wildcard `*.example.com` CNAME record pointing at the VM is the easiest
-way.
+To deploy Grafana as its own service, create
+`ansible/hosts/docker-vm1/grafana/docker-compose.yml` + (optional) `.env.j2`
+and run `ansible-playbook playbooks/deploy.yml --limit docker-vm1 --tags grafana`.
 
 ## Things deliberately left out
 
 - **HTTP basic-auth password** for the dashboard is a placeholder. Generate
-  a real one with `htpasswd -nB admin`.
-- **No automatic container restarts** on Traefik config changes — if you
-  modify the compose file, `docker compose up -d` to reconcile.
+  a real one with `htpasswd -nB admin` and put it in the dashboard label
+  (remember to double-up `$` to `$$` so Compose doesn't interpolate).
+- **No automatic container restarts** on Traefik config changes — running
+  `playbooks/deploy.yml` reconciles compose state via `docker compose up -d`.
 - **No middleware chains** (rate limits, IP allow-lists, forward auth).
   Keep the example readable; add those per your environment.

@@ -2,9 +2,8 @@
 # Traefik reverse proxy with Cloudflare DNS-01 Let's Encrypt certs,
 # plus a tiny `whoami` service to prove routing + TLS.
 #
-# Drop this compose file onto the VM that the `docker_vm1` OpenTofu
-# module just provisioned, bring it up with `docker compose up -d`, and
-# browse to https://whoami.example.com.
+# Deployed via: ansible-playbook playbooks/deploy.yml --limit docker-vm1 --tags traefik
+# (.env is rendered from .env.j2 by the deploy task.)
 
 networks:
   edge:

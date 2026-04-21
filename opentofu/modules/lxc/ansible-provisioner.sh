@@ -55,9 +55,8 @@ else
 fi
 
 echo ""
-echo "Running: ansible-playbook playbook.yml --limit ${LXC_NAME}"
-if ansible-playbook "playbook.yml" --inventory inventory.yml --limit "${LXC_NAME}" 2>/dev/null \
-        || ansible-playbook "playbooks/${PLAYBOOK_NAME}" --inventory inventory.yml --limit "${LXC_NAME}"; then
+echo "Running: ansible-playbook playbooks/${PLAYBOOK_NAME} --limit ${LXC_NAME}"
+if ansible-playbook "playbooks/${PLAYBOOK_NAME}" --inventory inventory.yml --limit "${LXC_NAME}"; then
 
     echo ""
     echo "Ansible finished. Restoring original inventory."

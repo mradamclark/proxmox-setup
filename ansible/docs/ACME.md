@@ -51,7 +51,7 @@ proxmox_acme_cloudflare_token: "cf_your_real_token_here"
 Then run just the ACME phase:
 
 ```bash
-ansible-playbook playbook.yml --tags acme
+ansible-playbook playbooks/proxmox.yml --tags acme
 ```
 
 ## What actually happens

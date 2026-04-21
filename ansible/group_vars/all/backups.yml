@@ -1,0 +1,48 @@
+---
+# Guest-side restic backups to BorgBase.
+#
+# Every host in docker_hosts + lxc_hosts picks these up unless overridden
+# in host_vars/<name>.yml.
+
+# Flip to true per-host or per-group. Leave false here so a dry run against
+# an inventory with no BorgBase creds set doesn't try to configure anything.
+restic_backups_enabled: false
+
+# What to back up. Override per host (host_vars/<name>.yml) because the
+# right answer varies: a Docker host usually wants /var/lib/docker/volumes
+# and /etc; an LXC might want /var/lib/postgresql, /opt, etc.
+restic_paths:
+  - /etc
+  - /root
+
+restic_exclude:
+  - "*.tmp"
+  - "*.swp"
+
+# Systemd OnCalendar expression. See `systemd.time(7)`.
+restic_schedule: "*-*-* 02:00:00"
+restic_schedule_jitter: "30min"
+
+restic_retention:
+  keep_daily: 7
+  keep_weekly: 4
+  keep_monthly: 6
+
+# --- BorgBase repository -----------------------------------------------------
+# Sign up at https://www.borgbase.com/, create a *Restic* repo (not a Borg
+# repo). You get a REST URL that looks like:
+#   https://<user>:<password>@<region>.your-storagebox.de:8443/
+# Put the user + password in vault_borgbase_username / vault_borgbase_password
+# (ansible-vault encrypted), then construct the URL here.
+borgbase_restic_host: "eu.borgbase.com:443"    # or whichever region you chose
+restic_repository: "rest:https://{{ vault_borgbase_username }}:{{ vault_borgbase_password }}@{{ borgbase_restic_host }}/"
+
+# Encryption key — 32+ random characters, stored in vault.
+restic_password: "{{ vault_restic_password }}"
+
+# --- Required vault keys (defined in an encrypted group_vars file) ----------
+# Example group_vars/all/vault.yml (ansible-vault encrypt this file):
+#
+#   vault_borgbase_username: "xxxx-xxxx-xxxx"
+#   vault_borgbase_password: "supersecretpassword"
+#   vault_restic_password:   "generate-with-openssl-rand-base64-32"

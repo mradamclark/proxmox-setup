@@ -1,0 +1,79 @@
+---
+# Deploy one Docker Compose service to a host.
+#
+# Required input vars:
+#   container_name — e.g. "traefik"
+#   service_dir    — absolute path to hosts/{hostname}/{container_name}/
+#                    on the Ansible controller
+#
+# What it does:
+#   1. Create /docker/{container_name}/ on the host
+#   2. Rsync service files (docker-compose.yml + anything else) to it
+#   3. Render .env.j2 → .env if the template exists
+#   4. Run an optional tasks.yml hook for pre-compose setup
+#   5. docker compose up -d --pull always
+
+- name: Create /docker/{{ container_name }}
+  tags: ["containers", "{{ container_name }}"]
+  ansible.builtin.file:
+    path: /docker/{{ container_name }}
+    state: directory
+    owner: root
+    group: staff
+    mode: "0775"
+
+- name: Sync {{ container_name }} files to host
+  tags: ["containers", "{{ container_name }}"]
+  ansible.posix.synchronize:
+    src: "{{ service_dir }}/"
+    dest: /docker/{{ container_name }}/
+    delete: false
+    recursive: true
+    rsync_opts:
+      - "--exclude=.env"
+      - "--exclude=data/"
+      - "--exclude=config/"
+      - "--exclude=.git"
+      - "--exclude=.gitignore"
+      - "--exclude=*.j2"
+      - "--exclude=tasks.yml"
+      - "--exclude=README.md"
+
+- name: Check for {{ container_name }} .env.j2 template
+  tags: ["containers", "{{ container_name }}"]
+  ansible.builtin.stat:
+    path: "{{ service_dir }}/.env.j2"
+  delegate_to: localhost
+  register: env_template
+  become: false
+
+- name: Render {{ container_name }} .env from template
+  tags: ["containers", "{{ container_name }}"]
+  ansible.builtin.template:
+    src: "{{ service_dir }}/.env.j2"
+    dest: /docker/{{ container_name }}/.env
+    owner: root
+    group: staff
+    mode: "0600"
+    backup: true
+  when: env_template.stat.exists
+
+- name: Check for {{ container_name }} pre-deploy tasks.yml
+  tags: ["containers", "{{ container_name }}"]
+  ansible.builtin.stat:
+    path: "{{ service_dir }}/tasks.yml"
+  delegate_to: localhost
+  register: container_tasks
+  become: false
+
+- name: Run {{ container_name }} pre-deploy tasks.yml
+  tags: ["containers", "{{ container_name }}"]
+  ansible.builtin.include_tasks: "{{ service_dir }}/tasks.yml"
+  when: container_tasks.stat.exists
+
+- name: Pull + deploy {{ container_name }} via docker compose
+  tags: ["containers", "{{ container_name }}"]
+  community.docker.docker_compose_v2:
+    project_src: /docker/{{ container_name }}
+    state: present
+    pull: always

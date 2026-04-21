@@ -1,23 +1,25 @@
 ---
 # Copy this file to inventory.yml and edit for your cluster.
 #
-# Each Proxmox node goes under `proxmox_hosts.hosts`. Use whatever naming
-# fits your environment — the example uses short names that match the node's
-# own hostname. ansible_host can be an IP or a DNS name; SSH is how Ansible
-# reaches the node.
+# Groups used by the playbooks:
+#   proxmox_hosts — physical Proxmox nodes
+#   docker_hosts  — Docker VMs provisioned by opentofu/ (or added by hand)
+#   lxc_hosts     — LXC containers provisioned by opentofu/ (or added by hand)
 #
-# `users` is the list of Linux accounts to create on each node. For every
-# username listed, drop a matching public key at ssh-keys/<username>.pub
-# and the users.yml task will install it to ~/.ssh/authorized_keys with
-# passwordless sudo.
+# The `users` list under `all.vars` creates matching Linux accounts on
+# every proxmox host. For every username listed, drop a public key at
+# ssh-keys/<username>.pub so the users.yml task can install it.
 
 all:
   vars:
-    ansible_user: root             # edit if you create your own admin user pre-setup
+    ansible_user: root             # edit if you pre-bootstrap a non-root user
     users:
-      - admin                       # requires ssh-keys/admin.pub
+      - admin                       # needs ssh-keys/admin.pub
 
   children:
+    # ------------------------------------------------------------------
+    # Proxmox hypervisor nodes
+    # ------------------------------------------------------------------
     proxmox_hosts:
       hosts:
         pve1:
@@ -26,3 +28,31 @@ all:
           ansible_host: 192.168.1.12
         pve3:
           ansible_host: 192.168.1.13
+
+    # ------------------------------------------------------------------
+    # Docker VMs
+    # ------------------------------------------------------------------
+    # Opentofu's VM module adds entries to this group automatically when you
+    # `tofu apply` a new VM (see opentofu/vm-example.tf). You can also add
+    # hosts by hand here.
+    #
+    # Per-host backup config usually goes in host_vars/<name>.yml — it lets
+    # you enable backups and tune the backed-up paths independently.
+    docker_hosts:
+      vars:
+        ansible_user: admin         # cloud-init user, see opentofu/variables.tf
+      hosts:
+        docker-vm1:
+          ansible_host: docker-vm1
+
+    # ------------------------------------------------------------------
+    # LXC containers
+    # ------------------------------------------------------------------
+    # Opentofu's LXC module does NOT leave a persistent entry here — LXCs
+    # self-register DNS during the playbook, so they resolve by hostname
+    # without a static inventory row. Add a stub here only when you want
+    # host_vars/<name>.yml overrides (e.g. to enable backups).
+    lxc_hosts:
+      vars:
+        ansible_user: root          # default for Ubuntu LXC templates
+      hosts: {}

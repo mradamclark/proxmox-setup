@@ -4,7 +4,7 @@
 #
 # IMPORTANT: make sure at least one user already has an authorized_key
 # installed before running this on a remote host, or you may lock yourself
-# out. The users.yml task runs after this in playbook.yml and handles the
+# out. The users.yml task runs after this in playbooks/proxmox.yml and handles the
 # key install, so in a fresh run the order is: ssh hardening -> users +
 # keys. But if you're using root for initial bootstrap, that still works
 # as long as you're connecting with a key, not a password.

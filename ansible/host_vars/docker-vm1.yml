@@ -1,0 +1,34 @@
+---
+# Example host_vars for a Docker VM that opts into BorgBase backups.
+# Rename to match whatever `vm_name` you set in opentofu/vm-example.tf.
+#
+# Per-host overrides trump the defaults in group_vars/all/backups.yml.
+
+# Flip on backups for this host.
+restic_backups_enabled: true
+
+# What this host cares about backing up. Docker Compose hosts typically want
+# named volumes (/var/lib/docker/volumes) plus any bind-mounted app data on
+# the host. Leave /etc in the list so your compose/env files come back too.
+restic_paths:
+  - /etc
+  - /root
+  - /var/lib/docker/volumes
+  - /opt                              # add your own app-data paths here
+
+# Keep restic from walking into things it doesn't need.
+restic_exclude:
+  - "*.tmp"
+  - "*.swp"
+  - "*.log"
+  - /var/lib/docker/volumes/*/lock
+
+# Stagger schedules if you have many VMs so they don't all hit BorgBase at once.
+# restic_schedule:        "*-*-* 03:30:00"
+# restic_schedule_jitter: "15min"
+
+# Per-host retention tuning (seven daily, four weekly, twelve monthly):
+# restic_retention:
+#   keep_daily:   7
+#   keep_weekly:  4
+#   keep_monthly: 12

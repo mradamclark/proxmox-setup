@@ -1,0 +1,13 @@
+[Unit]
+Description=Run restic-backup on schedule
+Requires=restic-backup.service
+
+[Timer]
+OnCalendar={{ restic_schedule | default('*-*-* 02:00:00') }}
+# Jitter so a whole fleet of VMs doesn't hit BorgBase at the exact same second.
+RandomizedDelaySec={{ restic_schedule_jitter | default('30min') }}
+Persistent=true
+Unit=restic-backup.service
+
+[Install]
+WantedBy=timers.target

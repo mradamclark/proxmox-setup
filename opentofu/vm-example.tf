@@ -4,7 +4,7 @@
 #   1. Wait for the QEMU guest agent to report an IP
 #   2. Wait for SSH + cloud-init to finish
 #   3. Edit ../ansible/inventory.yml so ansible_host = <IP>
-#   4. Run  ansible-playbook ../ansible/playbook.yml --limit docker-vm1
+#   4. Run  ansible-playbook ../ansible/playbooks/docker.yml --limit docker-vm1
 #   5. On success, flip the inventory entry back to ansible_host = docker-vm1
 #
 # Flip `run_ansible = false` to create the VM without the handoff — useful
@@ -37,11 +37,12 @@ module "docker_vm1" {
   tags = ["terraform", "docker"]
 
   # --- Ansible handoff ----------------------------------------------------
-  # After the VM is SSH-reachable, hand off to Ansible. The playbook is
-  # expected to at least install Docker and (optionally) deploy Traefik —
-  # see ../opentofu/traefik-example/ for a minimal compose file that
-  # demonstrates HTTPS via Cloudflare DNS-01.
+  # After the VM is SSH-reachable, hand off to Ansible. playbooks/docker.yml
+  # installs Docker + Compose + restic backups. To deploy services, run
+  # playbooks/deploy.yml afterwards — see
+  # ../ansible/hosts/docker-vm1/traefik/ for the Traefik + Cloudflare DNS-01
+  # pattern picked up automatically by deploy.yml.
   run_ansible      = true
-  ansible_playbook = "../ansible/playbook.yml"
+  ansible_playbook = "../ansible/playbooks/docker.yml"
   ansible_groups   = ["docker_hosts"]
 }

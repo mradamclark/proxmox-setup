@@ -1,0 +1,33 @@
+---
+# Verify Docker + Compose are installed. Does NOT install — use
+# tasks/docker/install.yml (via playbooks/docker.yml) for that.
+
+- name: Check docker binary present
+  tags: ["always"]
+  ansible.builtin.command: docker --version
+  register: docker_check
+  failed_when: false
+  changed_when: false
+
+- name: Fail loudly if Docker is missing
+  tags: ["always"]
+  ansible.builtin.fail:
+    msg: |
+      Docker is not installed on {{ inventory_hostname }}.
+      Run: ansible-playbook playbooks/docker.yml --limit {{ inventory_hostname }}
+  when: docker_check.rc != 0
+
+- name: Check compose plugin present
+  tags: ["always"]
+  ansible.builtin.command: docker compose version
+  register: compose_check
+  failed_when: false
+  changed_when: false
+
+- name: Fail loudly if Docker Compose is missing
+  tags: ["always"]
+  ansible.builtin.fail:
+    msg: |
+      Docker Compose plugin is not installed on {{ inventory_hostname }}.
+      Run: ansible-playbook playbooks/docker.yml --limit {{ inventory_hostname }}
+  when: compose_check.rc != 0

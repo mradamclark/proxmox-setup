@@ -19,11 +19,9 @@ opentofu/
 ├── ssh-keys/                              # drop admin.pub here
 ├── templates/
 │   └── cloud-init-default.yaml.tftpl      # injected by the VM module
-├── modules/
-│   ├── vm/                                # reusable VM module
-│   └── lxc/                               # reusable LXC module
-└── traefik-example/                       # standalone compose stack
-                                           # (Traefik + whoami + LE DNS-01)
+└── modules/
+    ├── vm/                                # reusable VM module
+    └── lxc/                               # reusable LXC module
 ```
 
 ## Quick start
@@ -164,11 +162,14 @@ Differences from the VM flow:
 
 Neither the VM nor the LXC module does anything TLS-specific. HTTPS is an
 application-level concern, handled by **Traefik on the Docker VM** — see
-[traefik-example/](traefik-example/) for the pattern. Summary:
+[../ansible/hosts/docker-vm1/traefik/](../ansible/hosts/docker-vm1/traefik/)
+for the pattern. Summary:
 
 - VM is provisioned by OpenTofu.
-- Ansible playbook installs Docker on the VM.
-- You `docker compose up -d` the [traefik-example stack](traefik-example/docker-compose.yml).
+- `playbooks/docker.yml` installs Docker + Compose inside the VM.
+- `playbooks/deploy.yml` rsyncs `ansible/hosts/docker-vm1/traefik/` to
+  `/docker/traefik/` on the VM, renders `.env` from the vault-sourced
+  `.env.j2`, and runs `docker compose up -d`.
 - Traefik gets certs from Let's Encrypt via Cloudflare DNS-01 (no inbound :80).
 
 The Proxmox *web UI* is a separate concern — cert for that comes from
@@ -195,7 +196,7 @@ module "my_vm" {
   proxmox_storage = var.pve1_storage
 
   run_ansible      = true
-  ansible_playbook = "../ansible/playbook.yml"
+  ansible_playbook = "../ansible/playbooks/docker.yml"
   ansible_groups   = ["docker_hosts"]
 }
 ```
@@ -227,7 +228,7 @@ module "my_lxc" {
   ssh_keys = local.ssh_key
 
   run_ansible      = true
-  ansible_playbook = "../ansible/playbook.yml"
+  ansible_playbook = "../ansible/playbooks/docker.yml"
   ansible_groups   = ["lxc_hosts"]
 }
 ```

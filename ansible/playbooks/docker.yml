@@ -1,0 +1,28 @@
+---
+# Docker VM configuration — runs inside the VM after opentofu creates it.
+#
+# Scope:
+#   1. Install Docker CE + Compose plugin (from Docker's official apt repo).
+#   2. Configure nightly restic backups to BorgBase (opt-in per host).
+#
+# Service deployment is separate — see playbooks/deploy.yml.
+#
+# Usage:
+#   ansible-playbook playbooks/docker.yml                          # all docker VMs
+#   ansible-playbook playbooks/docker.yml --limit docker-vm1       # one VM
+#   ansible-playbook playbooks/docker.yml --tags install           # just docker install
+#   ansible-playbook playbooks/docker.yml --tags backups           # just restic config
+#
+# Called automatically by the opentofu VM module's provisioner — see
+# opentofu/modules/vm/proxmox.tf. Set run_ansible = true + ansible_playbook =
+# "../ansible/playbooks/docker.yml" on the module call for tofu to run this
+# right after provisioning.
+
+- name: Configure Docker VMs
+  hosts: docker_hosts
+  become: true
+  gather_facts: true
+
+  tasks:
+    - import_tasks: ../tasks/docker/install.yml
+    - import_tasks: ../tasks/common/restic-backups.yml

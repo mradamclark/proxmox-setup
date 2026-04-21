@@ -1,0 +1,112 @@
+---
+# Guest-side restic backups to BorgBase.
+#
+# Runs inside a VM or LXC that's been added to docker_hosts or lxc_hosts.
+# Installs restic, writes the repo + password to /etc/restic/, installs a
+# wrapper script, then schedules it with a systemd timer.
+#
+# Toggle with `restic_backups_enabled: true` in group_vars or host_vars.
+
+- name: Install restic
+  when: restic_backups_enabled | default(false)
+  tags: ["backups"]
+  ansible.builtin.apt:
+    name: restic
+    state: present
+    update_cache: true
+
+- name: Create /etc/restic directory
+  when: restic_backups_enabled | default(false)
+  tags: ["backups"]
+  ansible.builtin.file:
+    path: /etc/restic
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Write restic repository URL
+  when: restic_backups_enabled | default(false)
+  tags: ["backups"]
+  ansible.builtin.copy:
+    dest: /etc/restic/repo
+    owner: root
+    group: root
+    mode: "0600"
+    content: "{{ restic_repository }}\n"
+  no_log: true
+
+- name: Write restic password
+  when: restic_backups_enabled | default(false)
+  tags: ["backups"]
+  ansible.builtin.copy:
+    dest: /etc/restic/password
+    owner: root
+    group: root
+    mode: "0600"
+    content: "{{ restic_password }}\n"
+  no_log: true
+
+- name: Install restic backup wrapper script
+  when: restic_backups_enabled | default(false)
+  tags: ["backups"]
+  ansible.builtin.template:
+    src: ../templates/common/restic-backup.sh.j2
+    dest: /usr/local/sbin/restic-backup
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Initialize restic repo (idempotent — fails with exit 0 if already init'd)
+  when: restic_backups_enabled | default(false)
+  tags: ["backups"]
+  ansible.builtin.shell: |
+    set -eu
+    export RESTIC_REPOSITORY="$(cat /etc/restic/repo)"
+    export RESTIC_PASSWORD_FILE=/etc/restic/password
+    if ! restic snapshots --limit 1 >/dev/null 2>&1; then
+        restic init
+        echo "initialized"
+    else
+        echo "exists"
+    fi
+  register: restic_init
+  changed_when: restic_init.stdout == "initialized"
+
+- name: Install restic-backup systemd service
+  when: restic_backups_enabled | default(false)
+  tags: ["backups"]
+  ansible.builtin.template:
+    src: ../templates/common/restic-backup.service.j2
+    dest: /etc/systemd/system/restic-backup.service
+    owner: root
+    group: root
+    mode: "0644"
+  register: restic_service
+
+- name: Install restic-backup systemd timer
+  when: restic_backups_enabled | default(false)
+  tags: ["backups"]
+  ansible.builtin.template:
+    src: ../templates/common/restic-backup.timer.j2
+    dest: /etc/systemd/system/restic-backup.timer
+    owner: root
+    group: root
+    mode: "0644"
+  register: restic_timer
+
+- name: Reload systemd if units changed
+  when:
+    - restic_backups_enabled | default(false)
+    - restic_service is changed or restic_timer is changed
+  tags: ["backups"]
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Enable + start restic-backup timer
+  when: restic_backups_enabled | default(false)
+  tags: ["backups"]
+  ansible.builtin.systemd:
+    name: restic-backup.timer
+    enabled: true
+    state: started

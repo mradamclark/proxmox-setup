@@ -31,6 +31,15 @@ Per node, in order:
    scraping. No Prometheus scrape config is managed — point your own
    Prometheus at the nodes.
 
+Separately, on every **guest** (any host in `docker_hosts` or `lxc_hosts`):
+
+10. **Guest backups to BorgBase** *(optional, off by default)* — install
+    `restic` inside the VM or LXC, drop an encrypted BorgBase repo URL
+    + password under `/etc/restic/`, and schedule a nightly `restic backup`
+    + retention prune via a systemd timer. Per-host paths via
+    `host_vars/<name>.yml`. See [docs/BACKUPS.md](docs/BACKUPS.md) for
+    the full walkthrough.
+
 Every task uses tags, so you can run subsets like `--tags acme` or
 `--tags users,ssh`.
 
@@ -64,16 +73,16 @@ $EDITOR vault.pwd
 $EDITOR group_vars/proxmox_hosts/main.yml
 
 # 5. Run it
-ansible-playbook playbook.yml
+ansible-playbook playbooks/proxmox.yml
 ```
 
 Useful subsets:
 
 ```bash
-ansible-playbook playbook.yml --limit pve1        # one node
-ansible-playbook playbook.yml --tags users        # just users + keys
-ansible-playbook playbook.yml --tags acme         # issue/renew certs
-ansible-playbook playbook.yml --check --diff      # dry-run preview
+ansible-playbook playbooks/proxmox.yml --limit pve1        # one node
+ansible-playbook playbooks/proxmox.yml --tags users        # just users + keys
+ansible-playbook playbooks/proxmox.yml --tags acme         # issue/renew certs
+ansible-playbook playbooks/proxmox.yml --check --diff      # dry-run preview
 ```
 
 ## Configuration
@@ -87,6 +96,9 @@ proxmox_acme_enabled: false           # issue LE certs via Cloudflare DNS-01
 proxmox_node_exporter_enabled: false  # install prometheus-node-exporter on :9100
 ```
 
+Guest backup defaults live in `group_vars/all/backups.yml`, opted in per
+host via `host_vars/<name>.yml` (e.g. `restic_backups_enabled: true`).
+
 Most people will want to leave the rest alone until they have a reason
 to change them. Per-host overrides go in `host_vars/<hostname>.yml`.
 
@@ -94,6 +106,8 @@ to change them. Per-host overrides go in `host_vars/<hostname>.yml`.
 
 - **Let's Encrypt certs** — see [docs/ACME.md](docs/ACME.md) for the
   full walkthrough, including how to scope a Cloudflare API token.
+- **Guest backups to BorgBase** — see [docs/BACKUPS.md](docs/BACKUPS.md)
+  for the BorgBase repo setup, vault structure, and restore procedure.
 - **Customizing / adding new tasks** — see [docs/CUSTOMIZING.md](docs/CUSTOMIZING.md).
 
 ## A note on what's *not* here
@@ -102,9 +116,10 @@ to change them. Per-host overrides go in `host_vars/<hostname>.yml`.
   repo so `apt update` works, but it does not suppress the "no valid
   subscription" dialog. If that bothers you, buy a subscription or look
   up the half-dozen community patches separately.
-- **No backup configuration.** Backups depend a lot on what you're
-  actually running, where you want them going, and how you want them
-  rotated. Configure Proxmox Backup Server or `vzdump` jobs directly.
+- **No Proxmox-host vzdump jobs.** The `restic` backup flow covers
+  guest-level data (files inside the VM/LXC). If you also want full
+  VM/LXC *snapshot* backups, configure `vzdump` jobs or Proxmox Backup
+  Server directly — they're outside this playbook's scope.
 - **No cluster bootstrap.** Creating a PVE cluster (`pvecm create` /
   `pvecm add`) is a one-time, state-sensitive operation that's easier
   to do by hand. This playbook configures nodes but doesn't form the

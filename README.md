@@ -7,7 +7,7 @@ containers provision themselves":
 | Component | What it does |
 |---|---|
 | [`proxmox-iso/`](proxmox-iso/) | Builds a **headless Proxmox installer ISO**. Flash, boot, walk away — the new node installs itself and joins your existing cluster automatically. |
-| [`ansible/`](ansible/) | Ansible playbook that configures a Proxmox node from "fresh install" to "running the way I like it" — hostname, repos, users, SSH hardening, shared storage, Let's Encrypt certs, node_exporter. |
+| [`ansible/`](ansible/) | Ansible playbook that configures a Proxmox node from "fresh install" to "running the way I like it" — hostname, repos, users, SSH hardening, shared storage, Let's Encrypt certs, node_exporter. Also configures **guest-side restic backups to BorgBase** for any VM/LXC added to `docker_hosts` or `lxc_hosts`. |
 | [`opentofu/`](opentofu/) | OpenTofu modules + examples for **provisioning VMs and LXCs** on the cluster, with a clean handoff to Ansible for per-host configuration. Includes a Traefik + Cloudflare DNS-01 compose example. |
 
 The three components are designed to work together but each is useful on
@@ -23,20 +23,22 @@ flowchart TD
     C -->|ansible: node config| D[Configured node]
     D -->|opentofu: module vm| E[VMs provisioned]
     D -->|opentofu: module lxc| F[LXCs provisioned]
-    E -->|Ansible handoff| G[VM configured]
-    F -->|Ansible handoff| H[LXC configured]
+    E -->|Ansible handoff| G[VM configured + restic timer]
+    F -->|Ansible handoff| H[LXC configured + restic timer]
     G -->|docker compose up| I[Services + Traefik + HTTPS]
+    G -->|nightly| J[BorgBase]
+    H -->|nightly| J
 ```
 
 1. Use `proxmox-iso/` to build a headless installer ISO for each node.
 2. Flash + boot. Each node installs Proxmox and joins the cluster on
    its own.
-3. Run `ansible/playbook.yml` to configure the nodes (users, repos,
+3. Run `ansible/playbooks/` to configure the nodes (users, repos,
    shared storage, optional Let's Encrypt cert on the web UI).
 4. Use `opentofu/` to provision VMs and LXCs. Each VM/LXC is then
    handed off to Ansible automatically for configuration.
 5. On the Docker VMs, deploy services behind Traefik (see
-   [`opentofu/traefik-example/`](opentofu/traefik-example/) for the
+   [`ansible/hosts/docker-vm1/traefik/`](ansible/hosts/docker-vm1/traefik/) for the
    canonical pattern with Let's Encrypt via Cloudflare DNS-01).
 
 ## Cross-component dependencies
@@ -44,7 +46,7 @@ flowchart TD
 - `proxmox-iso/build-iso.sh` reads **`ansible/inventory.yml`** to
   auto-discover existing cluster nodes. Optionally reads a TSIG key from
   `ansible/vault.pwd` for first-boot DNS registration.
-- `opentofu/` invokes **`ansible/playbook.yml`** via its own
+- `opentofu/` invokes **`ansible/playbooks/`** via its own
   provisioner scripts, editing `ansible/inventory.yml` on the fly for
   fresh hosts.
 - `ansible/` is the shared source of truth for "which hosts exist and

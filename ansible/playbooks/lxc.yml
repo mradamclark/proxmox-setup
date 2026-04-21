@@ -1,0 +1,24 @@
+---
+# LXC configuration — runs inside the container after opentofu creates it.
+#
+# Scope kept intentionally minimal in this example: nightly restic backups
+# to BorgBase. Add DNS self-registration, service-specific tasks, etc. here
+# as you add LXCs with real workloads.
+#
+# Usage:
+#   ansible-playbook playbooks/lxc.yml                         # all LXCs
+#   ansible-playbook playbooks/lxc.yml --limit plex            # one LXC
+#   ansible-playbook playbooks/lxc.yml --tags backups          # just restic config
+#
+# Called automatically by the opentofu LXC module's provisioner — see
+# opentofu/modules/lxc/proxmox.tf. Set run_ansible = true + ansible_playbook =
+# "../ansible/playbooks/lxc.yml" on the module call for tofu to run this
+# right after provisioning.
+
+- name: Configure LXCs
+  hosts: lxc_hosts
+  become: true
+  gather_facts: true
+
+  tasks:
+    - import_tasks: ../tasks/common/restic-backups.yml

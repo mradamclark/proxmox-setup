@@ -1,0 +1,50 @@
+---
+# Deploy Docker Compose services to Docker hosts.
+#
+# Services live at ansible/hosts/{hostname}/{service}/ — each subdirectory is
+# one docker-compose stack. The playbook auto-discovers what's there and
+# deploys each, so adding a new service is just "create a new directory."
+#
+# Expected files per service:
+#   docker-compose.yml        — required
+#   .env.j2                   — optional: rendered to .env on the host
+#   tasks.yml                 — optional: Ansible hook run before compose up
+#   README.md                 — optional: human docs, not copied to host
+#
+# Usage:
+#   ansible-playbook playbooks/deploy.yml                                     # all services on all docker hosts
+#   ansible-playbook playbooks/deploy.yml --limit docker-vm1                  # all services on one host
+#   ansible-playbook playbooks/deploy.yml --limit docker-vm1 --tags traefik   # one service on one host
+#   ansible-playbook playbooks/deploy.yml --tags traefik                      # one service across every host that has it
+#
+# Requires: Docker + Compose already installed. Run playbooks/docker.yml first.
+
+- name: Deploy services to Docker hosts
+  hosts: docker_hosts
+  become: true
+
+  tasks:
+    - name: Verify Docker is ready
+      tags: ["always"]
+      import_tasks: ../tasks/docker/check.yml
+
+    - name: Discover services under hosts/{{ inventory_hostname }}/
+      tags: ["always"]
+      ansible.builtin.find:
+        paths: "{{ playbook_dir }}/../hosts/{{ inventory_hostname }}/"
+        file_type: directory
+        recurse: false
+      delegate_to: localhost
+      register: host_services
+      become: false
+
+    - name: Deploy each discovered service
+      ansible.builtin.include_tasks: ../tasks/docker/deploy-container.yml
+      vars:
+        container_name: "{{ item.path | basename }}"
+        service_dir: "{{ playbook_dir }}/../hosts/{{ inventory_hostname }}/{{ item.path | basename }}"
+      loop: "{{ host_services.files | sort(attribute='path') }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      when: ansible_run_tags == ['all'] or (item.path | basename) in ansible_run_tags
+      tags: always

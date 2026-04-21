@@ -9,7 +9,7 @@ Build an unattended Proxmox VE install ISO that:
 5. Cleans up after itself (deletes the one-time SSH key it used to join)
 
 Flash, boot, walk away. ~5–10 minutes later the node is in your cluster and
-ready for `ansible-playbook playbook.yml --limit <node>`.
+ready for `ansible-playbook playbooks/proxmox.yml --limit <node>`.
 
 ## How cluster join works
 
@@ -74,7 +74,7 @@ $EDITOR answer-pve2.toml     # set fqdn, disks, root ssh key
 sudo ./flash-iso.sh proxmox-pve2-autoinstall.iso /dev/sdX
 
 # 4. Boot the new node from USB. Walk away. ~5–10 min later:
-ansible-playbook ../ansible/playbook.yml --limit pve2
+ansible-playbook ../ansible/playbooks/proxmox.yml --limit pve2
 ```
 
 `./build-iso.sh <node> auto` lets the remote build host pick the latest

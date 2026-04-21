@@ -65,9 +65,8 @@ else
 fi
 
 echo ""
-echo "Running Ansible playbook: ${PLAYBOOK_NAME} --limit ${VM_NAME}"
-if ansible-playbook "playbook.yml" --inventory inventory.yml --limit "${VM_NAME}" 2>/dev/null \
-        || ansible-playbook "playbooks/${PLAYBOOK_NAME}" --inventory inventory.yml --limit "${VM_NAME}"; then
+echo "Running Ansible playbook: playbooks/${PLAYBOOK_NAME} --limit ${VM_NAME}"
+if ansible-playbook "playbooks/${PLAYBOOK_NAME}" --inventory inventory.yml --limit "${VM_NAME}"; then
 
     echo ""
     echo "Ansible finished. Switching inventory back to hostname."

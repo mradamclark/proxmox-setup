@@ -1,0 +1,13 @@
+---
+# Pre-deploy hook for traefik — creates the acme.json file Traefik writes
+# certs to. Must exist with 0600 perms before the container starts or
+# Traefik refuses to boot.
+
+- name: Ensure traefik acme.json exists with 0600
+  ansible.builtin.copy:
+    dest: /docker/traefik/acme.json
+    content: ""
+    force: false
+    owner: root
+    group: staff
+    mode: "0600"

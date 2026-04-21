@@ -1,0 +1,69 @@
+---
+# Install Docker CE + Compose plugin from Docker's official apt repo.
+# Tags: ["docker", "install"]
+
+- name: Install Docker prerequisites
+  tags: ["docker", "install"]
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+    update_cache: true
+
+- name: Create apt keyring directory
+  tags: ["docker", "install"]
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Add Docker's apt signing key
+  tags: ["docker", "install"]
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+    force: false
+
+- name: Add Docker apt repository
+  tags: ["docker", "install"]
+  ansible.builtin.apt_repository:
+    repo: "deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    filename: docker
+    state: present
+    update_cache: true
+
+- name: Install Docker engine + compose plugin
+  tags: ["docker", "install"]
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
+
+- name: Ensure `staff` group exists
+  tags: ["docker", "install"]
+  ansible.builtin.group:
+    name: staff
+    state: present
+
+- name: Create /docker deployment root
+  tags: ["docker", "install"]
+  ansible.builtin.file:
+    path: /docker
+    state: directory
+    owner: root
+    group: staff
+    mode: "0775"
+
+- name: Enable + start Docker service
+  tags: ["docker", "install"]
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started

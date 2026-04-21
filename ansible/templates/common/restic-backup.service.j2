@@ -1,0 +1,19 @@
+[Unit]
+Description=Restic backup for {{ inventory_hostname }}
+Documentation=https://restic.readthedocs.io/
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/restic-backup
+Nice=19
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+# Lock down — restic only needs to read restic_paths + write to the network.
+ProtectSystem=strict
+ProtectHome=read-only
+NoNewPrivileges=true
+PrivateTmp=true
+ReadWritePaths=/etc/restic /var/lib/restic /var/cache/restic

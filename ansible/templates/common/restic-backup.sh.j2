@@ -1,0 +1,42 @@
+#!/bin/bash
+# restic-backup — wrapper invoked by the systemd timer. Loads repo + password
+# from /etc/restic/, runs `restic backup`, then `restic forget --prune`.
+# Managed by Ansible — do not edit by hand.
+
+set -euo pipefail
+
+export RESTIC_REPOSITORY="$(cat /etc/restic/repo)"
+export RESTIC_PASSWORD_FILE=/etc/restic/password
+
+# Reduce memory footprint on LXCs / small VMs. Remove if you want restic to
+# parallelise more aggressively.
+export GOGC=20
+
+HOST="$(hostname)"
+
+log() { logger -t restic-backup -p user.info "$*"; echo "[$(date -Iseconds)] $*"; }
+
+log "backup starting for ${HOST}"
+
+restic backup \
+    --host "${HOST}" \
+    --tag automated \
+{% for path in restic_paths %}
+    {{ path | quote }} \
+{% endfor %}
+{% for pattern in (restic_exclude | default([])) %}
+    --exclude {{ pattern | quote }} \
+{% endfor %}
+    --verbose
+
+log "backup finished for ${HOST}; applying retention"
+
+restic forget \
+    --host "${HOST}" \
+    --tag automated \
+    --keep-daily   {{ restic_retention.keep_daily   | default(7) }} \
+    --keep-weekly  {{ restic_retention.keep_weekly  | default(4) }} \
+    --keep-monthly {{ restic_retention.keep_monthly | default(6) }} \
+    --prune
+
+log "retention applied for ${HOST}"
