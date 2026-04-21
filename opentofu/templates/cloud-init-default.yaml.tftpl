@@ -1,0 +1,38 @@
+#cloud-config
+# Default cloud-init for Proxmox VMs managed by OpenTofu.
+# Handles first-boot setup so VMs are SSH-ready when Ansible runs.
+
+timezone: Etc/UTC
+locale:   en_US.UTF-8
+
+users:
+  - name: ${username}
+    groups: [adm, sudo]
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ${ssh_key}
+
+ssh_pwauth:  false
+disable_root: false
+
+package_update:  true
+package_upgrade: true
+packages:
+  - qemu-guest-agent
+  - curl
+  - wget
+  - ca-certificates
+  - gnupg
+  - git
+  - vim
+  - htop
+  - jq
+  - rsync
+  - sudo
+
+# Start the guest agent early so Proxmox sees the IP ASAP.
+runcmd:
+  - systemctl enable qemu-guest-agent
+  - systemctl start  qemu-guest-agent

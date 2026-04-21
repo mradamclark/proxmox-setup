@@ -1,0 +1,31 @@
+# Proxmox VE automated-install answer file.
+# One file per node. Copy to `answer-<hostname>.toml` and customize.
+# Placeholders (__NAME__) are substituted by build-iso.sh at build time.
+#
+# Reference: https://pve.proxmox.com/wiki/Automated_Installation
+
+[global]
+keyboard      = "en-us"
+country       = "us"
+fqdn          = "pve1.example.lan"
+mailto        = "root@localhost"
+timezone      = "America/Denver"
+root_password = "__ROOT_PASSWORD__"
+root_ssh_keys = [
+    "ssh-ed25519 AAAA... your-admin-key-here",
+]
+
+[network]
+source = "from-dhcp"
+# The node will DHCP on first boot. Set a static reservation in your DHCP
+# server (Omada/UniFi/opnsense) so the IP is stable before building the ISO.
+
+[disk-setup]
+# ZFS on a single NVMe. Adjust `disk_list` to match the target hardware.
+filesystem = "zfs"
+zfs.raid   = "raid0"
+disk_list  = ["/dev/nvme0n1"]
+
+[first-boot]
+source   = "from-iso"
+ordering = "fully-up"

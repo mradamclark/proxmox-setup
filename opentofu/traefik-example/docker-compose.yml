@@ -1,0 +1,73 @@
+---
+# Traefik reverse proxy with Cloudflare DNS-01 Let's Encrypt certs,
+# plus a tiny `whoami` service to prove routing + TLS.
+#
+# Drop this compose file onto the VM that the `docker_vm1` OpenTofu
+# module just provisioned, bring it up with `docker compose up -d`, and
+# browse to https://whoami.example.com.
+
+networks:
+  edge:
+    name: edge
+
+services:
+  traefik:
+    image: traefik:v3.2
+    container_name: traefik
+    restart: unless-stopped
+    networks: [edge]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Needed for the Cloudflare DNS-01 challenge.
+      CF_DNS_API_TOKEN: "${CF_DNS_API_TOKEN}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./acme.json:/acme.json
+    command:
+      # Entrypoints
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.web.http.redirections.entryPoint.to=websecure
+      - --entrypoints.web.http.redirections.entryPoint.scheme=https
+
+      # Docker provider — discover services via labels
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=edge
+
+      # Cloudflare DNS-01 resolver
+      - --certificatesresolvers.cloudflare.acme.email=admin@example.com
+      - --certificatesresolvers.cloudflare.acme.storage=/acme.json
+      - --certificatesresolvers.cloudflare.acme.dnschallenge.provider=cloudflare
+      - --certificatesresolvers.cloudflare.acme.dnschallenge.resolvers=1.1.1.1:53,8.8.8.8:53
+
+      # Observability
+      - --api.dashboard=true
+      - --log.level=INFO
+      - --accesslog=true
+
+    labels:
+      # Expose the Traefik dashboard itself at https://traefik.example.com
+      - traefik.enable=true
+      - traefik.http.routers.dashboard.rule=Host(`traefik.example.com`)
+      - traefik.http.routers.dashboard.entrypoints=websecure
+      - traefik.http.routers.dashboard.tls.certresolver=cloudflare
+      - traefik.http.routers.dashboard.service=api@internal
+      - traefik.http.routers.dashboard.middlewares=dashboard-auth
+      # Basic-auth for the dashboard — generate with: htpasswd -nB admin
+      # The value below is "admin:admin" — REPLACE BEFORE USING.
+      - traefik.http.middlewares.dashboard-auth.basicauth.users=admin:$$apr1$$replace$$this
+
+  whoami:
+    image: traefik/whoami
+    container_name: whoami
+    restart: unless-stopped
+    networks: [edge]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.whoami.rule=Host(`whoami.example.com`)
+      - traefik.http.routers.whoami.entrypoints=websecure
+      - traefik.http.routers.whoami.tls.certresolver=cloudflare
+      - traefik.http.services.whoami.loadbalancer.server.port=80

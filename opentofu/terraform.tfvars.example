@@ -1,0 +1,13 @@
+# Copy to terraform.tfvars and fill in. Never commit terraform.tfvars.
+
+# Proxmox API
+proxmox_endpoint   = "https://pve1.example.lan:8006/"
+proxmox_api_token  = "terraform@pam!terraform=<your-token-secret>"
+proxmox_tls_insecure = true
+
+# Optional: only needed for LXC bind-mounts (Proxmox restriction)
+# proxmox_root_password = "..."
+
+# Per-node overrides
+pve1_storage  = "local-lvm"
+pve1_ssh_host = "pve1.example.lan"
